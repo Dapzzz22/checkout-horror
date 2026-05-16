@@ -1,0 +1,284 @@
+<!DOCTYPE html><html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHECKOUT - Horror Hotel</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: Arial, sans-serif;
+    }#menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  background: linear-gradient(to bottom, #000000, #1b0000);
+  color: white;
+  z-index: 10;
+}
+
+h1 {
+  font-size: 70px;
+  color: crimson;
+  text-shadow: 0 0 20px red;
+  margin-bottom: 10px;
+}
+
+p {
+  opacity: 0.8;
+  margin-bottom: 30px;
+}
+
+button {
+  padding: 15px 40px;
+  border: none;
+  border-radius: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  background: crimson;
+  color: white;
+  transition: 0.3s;
+}
+
+button:hover {
+  transform: scale(1.05);
+  background: red;
+}
+
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+  z-index: 5;
+  font-size: 20px;
+  display: none;
+}
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  z-index: 5;
+  display: none;
+}
+
+  </style>
+</head>
+<body><div id="menu">
+  <h1>CHECKOUT</h1>
+  <p>Kabur dari hotel terkutuk sebelum jam 03:00...</p>
+  <button id="startBtn">MULAI</button>
+</div><div id="hud">Room: <span id="room">1</span></div>
+<div id="crosshair"></div><script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
+import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/PointerLockControls.js';
+
+let scene, camera, renderer, controls;
+let moveForward = false;
+let moveBackward = false;
+let moveLeft = false;
+let moveRight = false;
+
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+
+let roomNumber = 1;
+let monster;
+
+const startBtn = document.getElementById('startBtn');
+const menu = document.getElementById('menu');
+const hud = document.getElementById('hud');
+const roomText = document.getElementById('room');
+const crosshair = document.getElementById('crosshair');
+
+startBtn.addEventListener('click', () => {
+  init();
+  animate();
+  menu.style.display = 'none';
+  hud.style.display = 'block';
+  crosshair.style.display = 'block';
+});
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050505);
+  scene.fog = new THREE.Fog(0x000000, 10, 60);
+
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    1,
+    1000
+  );
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  document.body.appendChild(renderer.domElement);
+
+  controls = new PointerLockControls(camera, document.body);
+
+  document.body.addEventListener('click', () => {
+    controls.lock();
+  });
+
+  scene.add(controls.getObject());
+
+  const ambient = new THREE.AmbientLight(0x404040, 1);
+  scene.add(ambient);
+
+  const light = new THREE.PointLight(0xffaa66, 20, 50);
+  light.position.set(0, 5, 0);
+  light.castShadow = true;
+  scene.add(light);
+
+  createHotel();
+  createMonster();
+
+  camera.position.y = 2;
+
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+
+  window.addEventListener('resize', onResize);
+}
+
+function createHotel() {
+  const floorGeo = new THREE.BoxGeometry(100, 1, 100);
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0x330000
+  });
+
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  for (let i = 0; i < 10; i++) {
+    createRoom(i * -15);
+  }
+}
+
+function createRoom(z) {
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0x552222
+  });
+
+  const sideWallGeo = new THREE.BoxGeometry(1, 6, 12);
+
+  const leftWall = new THREE.Mesh(sideWallGeo, wallMat);
+  leftWall.position.set(-6, 3, z);
+  scene.add(leftWall);
+
+  const rightWall = new THREE.Mesh(sideWallGeo, wallMat);
+  rightWall.position.set(6, 3, z);
+  scene.add(rightWall);
+
+  const topWallGeo = new THREE.BoxGeometry(12, 6, 1);
+
+  const backWall = new THREE.Mesh(topWallGeo, wallMat);
+  backWall.position.set(0, 3, z - 6);
+  scene.add(backWall);
+
+  const doorGeo = new THREE.BoxGeometry(3, 5, 0.5);
+  const doorMat = new THREE.MeshStandardMaterial({
+    color: 0x111111
+  });
+
+  const door = new THREE.Mesh(doorGeo, doorMat);
+  door.position.set(0, 2.5, z + 6);
+  scene.add(door);
+
+  const lamp = new THREE.PointLight(0xffcc88, 8, 15);
+  lamp.position.set(0, 5, z);
+  scene.add(lamp);
+}
+
+function createMonster() {
+  const geo = new THREE.BoxGeometry(2, 4, 2);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    emissive: 0x330000
+  });
+
+  monster = new THREE.Mesh(geo, mat);
+  monster.position.set(0, 2, -40);
+  scene.add(monster);
+}
+
+function updateMonster() {
+  monster.position.z += 0.03;
+
+  const distance = monster.position.distanceTo(camera.position);
+
+  if (distance < 4) {
+    alert('KAMU TERTANGKAP!');
+    location.reload();
+  }
+}
+
+function onKeyDown(event) {
+  switch (event.code) {
+    case 'KeyW': moveForward = true; break;
+    case 'KeyS': moveBackward = true; break;
+    case 'KeyA': moveLeft = true; break;
+    case 'KeyD': moveRight = true; break;
+  }
+}
+
+function onKeyUp(event) {
+  switch (event.code) {
+    case 'KeyW': moveForward = false; break;
+    case 'KeyS': moveBackward = false; break;
+    case 'KeyA': moveLeft = false; break;
+    case 'KeyD': moveRight = false; break;
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  velocity.x -= velocity.x * 10.0 * 0.016;
+  velocity.z -= velocity.z * 10.0 * 0.016;
+
+  direction.z = Number(moveForward) - Number(moveBackward);
+  direction.x = Number(moveRight) - Number(moveLeft);
+  direction.normalize();
+
+  if (moveForward || moveBackward)
+    velocity.z -= direction.z * 40.0 * 0.016;
+
+  if (moveLeft || moveRight)
+    velocity.x -= direction.x * 40.0 * 0.016;
+
+  controls.moveRight(-velocity.x * 0.016);
+  controls.moveForward(-velocity.z * 0.016);
+
+  const currentRoom = Math.floor(Math.abs(camera.position.z) / 15) + 1;
+
+  if (currentRoom !== roomNumber) {
+    roomNumber = currentRoom;
+    roomText.textContent = roomNumber;
+  }
+
+  updateMonster();
+
+  renderer.render(scene, camera);
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+</script></body>
+</html>
