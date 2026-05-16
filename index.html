@@ -1,15 +1,30 @@
-<!DOCTYPE html><html lang="id">
+<!DOCTYPE html>
+<html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CHECKOUT - Horror Hotel</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-      font-family: Arial, sans-serif;
-    }#menu {
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+<title>CHECKOUT - Horror Hotel</title>
+
+<style>
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+  position: fixed;
+  background: black;
+  font-family: Arial, sans-serif;
+}
+
+canvas {
+  display: block;
+}
+
+#menu {
   position: absolute;
   inset: 0;
   display: flex;
@@ -18,7 +33,7 @@
   flex-direction: column;
   background: linear-gradient(to bottom, #000000, #1b0000);
   color: white;
-  z-index: 10;
+  z-index: 20;
 }
 
 h1 {
@@ -38,59 +53,89 @@ button {
   border: none;
   border-radius: 12px;
   font-size: 20px;
-  cursor: pointer;
   background: crimson;
   color: white;
-  transition: 0.3s;
-}
-
-button:hover {
-  transform: scale(1.05);
-  background: red;
 }
 
 #hud {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 15px;
+  left: 15px;
   color: white;
-  z-index: 5;
-  font-size: 20px;
+  z-index: 10;
   display: none;
+  font-size: 20px;
 }
 
 #crosshair {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
   width: 10px;
   height: 10px;
-  border-radius: 50%;
   background: white;
-  z-index: 5;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
   display: none;
 }
 
-  </style>
+#mobileControls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 30;
+}
+
+#joystickBase {
+  width: 120px;
+  height: 120px;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  position: relative;
+}
+
+#joystick {
+  width: 50px;
+  height: 50px;
+  background: crimson;
+  border-radius: 50%;
+  position: absolute;
+  left: 35px;
+  top: 35px;
+}
+
+</style>
 </head>
-<body><div id="menu">
+<body>
+
+<div id="menu">
   <h1>CHECKOUT</h1>
   <p>Kabur dari hotel terkutuk sebelum jam 03:00...</p>
   <button id="startBtn">MULAI</button>
-</div><div id="hud">Room: <span id="room">1</span></div>
-<div id="crosshair"></div><script type="module">
+</div>
+
+<div id="hud">
+  Room: <span id="room">1</span>
+</div>
+
+<div id="crosshair"></div>
+
+<div id="mobileControls">
+  <div id="joystickBase">
+    <div id="joystick"></div>
+  </div>
+</div>
+
+<script type="module">
+
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
-import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/PointerLockControls.js';
 
-let scene, camera, renderer, controls;
-let moveForward = false;
-let moveBackward = false;
-let moveLeft = false;
-let moveRight = false;
+let scene, camera, renderer;
 
-const velocity = new THREE.Vector3();
-const direction = new THREE.Vector3();
+let moveX = 0;
+let moveY = 0;
 
 let roomNumber = 1;
 let monster;
@@ -102,183 +147,253 @@ const roomText = document.getElementById('room');
 const crosshair = document.getElementById('crosshair');
 
 startBtn.addEventListener('click', () => {
-  init();
-  animate();
+
   menu.style.display = 'none';
   hud.style.display = 'block';
   crosshair.style.display = 'block';
+
+  init();
+  animate();
+
 });
 
 function init() {
+
   scene = new THREE.Scene();
+
   scene.background = new THREE.Color(0x050505);
-  scene.fog = new THREE.Fog(0x000000, 10, 60);
+
+  scene.fog = new THREE.Fog(0x000000, 10, 80);
 
   camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
-    1,
+    0.1,
     1000
   );
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  document.body.appendChild(renderer.domElement);
+  camera.position.set(0, 2, 5);
 
-  controls = new PointerLockControls(camera, document.body);
-
-  document.body.addEventListener('click', () => {
-    controls.lock();
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
   });
 
-  scene.add(controls.getObject());
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  renderer.shadowMap.enabled = true;
+
+  document.body.appendChild(renderer.domElement);
 
   const ambient = new THREE.AmbientLight(0x404040, 1);
+
   scene.add(ambient);
 
-  const light = new THREE.PointLight(0xffaa66, 20, 50);
+  const light = new THREE.PointLight(0xffaa66, 15, 50);
+
   light.position.set(0, 5, 0);
-  light.castShadow = true;
+
   scene.add(light);
 
   createHotel();
   createMonster();
 
-  camera.position.y = 2;
-
-  document.addEventListener('keydown', onKeyDown);
-  document.addEventListener('keyup', onKeyUp);
+  setupJoystick();
 
   window.addEventListener('resize', onResize);
+
 }
 
 function createHotel() {
-  const floorGeo = new THREE.BoxGeometry(100, 1, 100);
+
+  const floorGeo = new THREE.BoxGeometry(100, 1, 300);
+
   const floorMat = new THREE.MeshStandardMaterial({
     color: 0x330000
   });
 
   const floor = new THREE.Mesh(floorGeo, floorMat);
-  floor.receiveShadow = true;
+
   scene.add(floor);
 
-  for (let i = 0; i < 10; i++) {
+  for(let i = 0; i < 20; i++) {
+
     createRoom(i * -15);
+
   }
+
 }
 
 function createRoom(z) {
+
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x552222
   });
 
-  const sideWallGeo = new THREE.BoxGeometry(1, 6, 12);
+  const wallGeo = new THREE.BoxGeometry(1, 6, 12);
 
-  const leftWall = new THREE.Mesh(sideWallGeo, wallMat);
+  const leftWall = new THREE.Mesh(wallGeo, wallMat);
+
   leftWall.position.set(-6, 3, z);
+
   scene.add(leftWall);
 
-  const rightWall = new THREE.Mesh(sideWallGeo, wallMat);
+  const rightWall = new THREE.Mesh(wallGeo, wallMat);
+
   rightWall.position.set(6, 3, z);
+
   scene.add(rightWall);
 
-  const topWallGeo = new THREE.BoxGeometry(12, 6, 1);
+  const backGeo = new THREE.BoxGeometry(12, 6, 1);
 
-  const backWall = new THREE.Mesh(topWallGeo, wallMat);
+  const backWall = new THREE.Mesh(backGeo, wallMat);
+
   backWall.position.set(0, 3, z - 6);
+
   scene.add(backWall);
 
   const doorGeo = new THREE.BoxGeometry(3, 5, 0.5);
+
   const doorMat = new THREE.MeshStandardMaterial({
     color: 0x111111
   });
 
   const door = new THREE.Mesh(doorGeo, doorMat);
+
   door.position.set(0, 2.5, z + 6);
+
   scene.add(door);
 
   const lamp = new THREE.PointLight(0xffcc88, 8, 15);
+
   lamp.position.set(0, 5, z);
+
   scene.add(lamp);
+
 }
 
 function createMonster() {
+
   const geo = new THREE.BoxGeometry(2, 4, 2);
+
   const mat = new THREE.MeshStandardMaterial({
     color: 0x111111,
-    emissive: 0x330000
+    emissive: 0x440000
   });
 
   monster = new THREE.Mesh(geo, mat);
-  monster.position.set(0, 2, -40);
+
+  monster.position.set(0, 2, -50);
+
   scene.add(monster);
+
 }
 
 function updateMonster() {
+
   monster.position.z += 0.03;
 
   const distance = monster.position.distanceTo(camera.position);
 
-  if (distance < 4) {
+  if(distance < 3) {
+
     alert('KAMU TERTANGKAP!');
     location.reload();
+
   }
+
 }
 
-function onKeyDown(event) {
-  switch (event.code) {
-    case 'KeyW': moveForward = true; break;
-    case 'KeyS': moveBackward = true; break;
-    case 'KeyA': moveLeft = true; break;
-    case 'KeyD': moveRight = true; break;
-  }
-}
+function setupJoystick() {
 
-function onKeyUp(event) {
-  switch (event.code) {
-    case 'KeyW': moveForward = false; break;
-    case 'KeyS': moveBackward = false; break;
-    case 'KeyA': moveLeft = false; break;
-    case 'KeyD': moveRight = false; break;
-  }
+  const base = document.getElementById('joystickBase');
+
+  const stick = document.getElementById('joystick');
+
+  base.addEventListener('touchmove', (e) => {
+
+    e.preventDefault();
+
+    const rect = base.getBoundingClientRect();
+
+    const touch = e.touches[0];
+
+    let x = touch.clientX - rect.left - 60;
+
+    let y = touch.clientY - rect.top - 60;
+
+    const distance = Math.sqrt(x*x + y*y);
+
+    const max = 40;
+
+    if(distance > max) {
+
+      x = (x / distance) * max;
+      y = (y / distance) * max;
+
+    }
+
+    stick.style.left = (x + 35) + 'px';
+
+    stick.style.top = (y + 35) + 'px';
+
+    moveX = x / max;
+
+    moveY = y / max;
+
+  });
+
+  base.addEventListener('touchend', () => {
+
+    moveX = 0;
+    moveY = 0;
+
+    stick.style.left = '35px';
+
+    stick.style.top = '35px';
+
+  });
+
 }
 
 function animate() {
+
   requestAnimationFrame(animate);
 
-  velocity.x -= velocity.x * 10.0 * 0.016;
-  velocity.z -= velocity.z * 10.0 * 0.016;
+  camera.position.x += moveX * 0.1;
 
-  direction.z = Number(moveForward) - Number(moveBackward);
-  direction.x = Number(moveRight) - Number(moveLeft);
-  direction.normalize();
-
-  if (moveForward || moveBackward)
-    velocity.z -= direction.z * 40.0 * 0.016;
-
-  if (moveLeft || moveRight)
-    velocity.x -= direction.x * 40.0 * 0.016;
-
-  controls.moveRight(-velocity.x * 0.016);
-  controls.moveForward(-velocity.z * 0.016);
+  camera.position.z += moveY * 0.2;
 
   const currentRoom = Math.floor(Math.abs(camera.position.z) / 15) + 1;
 
-  if (currentRoom !== roomNumber) {
+  if(currentRoom !== roomNumber) {
+
     roomNumber = currentRoom;
+
     roomText.textContent = roomNumber;
+
   }
 
   updateMonster();
 
   renderer.render(scene, camera);
+
 }
 
 function onResize() {
+
   camera.aspect = window.innerWidth / window.innerHeight;
+
   camera.updateProjectionMatrix();
+
   renderer.setSize(window.innerWidth, window.innerHeight);
+
 }
-</script></body>
+
+document.body.addEventListener('touchmove', function(e) {
+  e.preventDefault();
+}, { passive:false });
+
+</script>
+
+</body>
 </html>
